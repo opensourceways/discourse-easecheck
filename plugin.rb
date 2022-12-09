@@ -17,6 +17,7 @@ load File.expand_path("../../../app/services/word_watcher.rb", __FILE__)
 load File.expand_path("../lib/validators/post_moderator_validator.rb", __FILE__)
 load File.expand_path("../lib/validators/title_moderator_validator.rb", __FILE__)
 load File.expand_path("../lib/validators/image_moderator_validator.rb", __FILE__)
+load File.expand_path("../lib/validators/chat_moderator_validator.rb", __FILE__)
 
 =begin
 This class is designed for Huawei Cloud Moderation service.
