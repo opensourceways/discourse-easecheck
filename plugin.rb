@@ -415,20 +415,7 @@ class ModeratorValidator < ActiveModel::EachValidator
             record.errors.add(attribute, I18n.t(key))
             return
         end
-        if suggestion == "block"
-            if matches.size == 0    
-                key = "contains_sensitive_exp"
-                record.errors.add(attribute, I18n.t(key))
-            elsif matches.size == 1
-                key = 'contains_sensitive_word'
-                translation_args = { word: CGI.escapeHTML(matches[0]) }
-                record.errors.add(attribute, I18n.t(key, translation_args))
-            else
-                key = 'contains_sensitive_words'
-                translation_args = { words: CGI.escapeHTML(matches.join(', ')) }
-                record.errors.add(attribute, I18n.t(key, translation_args))
-            end
-        elsif suggestion == "review"
+        if suggestion == "block" or suggestion == "review"
             key = "sensitive_check_review"
             record.errors.add(attribute, key)
         end
