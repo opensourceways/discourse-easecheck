@@ -117,8 +117,7 @@ class ::Moderator
 
     def self.text_request_body(text, event_type)
         body = {}
-        body[:event_type] = event_type if event_type
-        body[:data] = {text: text}.stringify_keys
+        body[:items] = [{text: text}.stringify_keys]
         json_body = JSON.parse body.to_json
         json_body.to_s.gsub('=>', ':')
     end
@@ -198,7 +197,7 @@ class ::Moderator
         end
 
         suggestion = result[:suggestion]
-        if suggestion == SiteSetting.sensitive_block_exp and result[:hits].blank?
+        if suggestion == SiteSetting.sensitive_block_exp and result[:hits].empty?
             return "block", []
         elsif suggestion == SiteSetting.sensitive_review_exp
             return "review", []
@@ -206,9 +205,7 @@ class ::Moderator
             return "pass", []
         end
 
-        hits = result[:hits].map do |seg|
-            seg[SiteSetting.sensitive_seg_path_in_hits] if SiteSetting.sensitive_seg_path_in_hits
-        end
+        hits = result[:hits].to_s.gsub('=>', ':')
         return "block", hits
     end
 

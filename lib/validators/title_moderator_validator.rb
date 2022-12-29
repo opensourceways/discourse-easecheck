@@ -19,13 +19,9 @@ class TitleModeratorValidator < ActiveModel::EachValidator
             if matches.size == 0    
                 key = "contains_sensitive_exp"
                 record.errors.add(attribute, I18n.t(key))
-            elsif matches.size == 1
-                key = 'contains_sensitive_word'
-                translation_args = { word: CGI.escapeHTML(matches[0]) }
-                record.errors.add(attribute, I18n.t(key, translation_args))
             else
                 key = 'contains_sensitive_words'
-                translation_args = { words: CGI.escapeHTML(matches.join(', ')) }
+                translation_args = { words: matches }
                 record.errors.add(attribute, I18n.t(key, translation_args))
             end
         end
