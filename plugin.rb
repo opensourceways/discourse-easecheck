@@ -27,20 +27,17 @@ For texts, it returns process suggestion and hits words.
 For images, it only returns process suggestion.
 =end
 class ::Moderator
-    @@token = nil
-    @@token_expire_time = nil
+    def self.cache_key
+        "easecheck_moderator"
+    end
 
     def self.is_token_expired?
-        if @@token.nil?
-            return true
+        existing_token = Discourse.redis.get(cache_key)
+        if existing_token
+            false
+        else
+            true
         end
-
-        cur_time = Time.new
-        if cur_time > @@token_expire_time
-            return true
-        end
-
-        false
     end
 
     def self.refresh_token?
@@ -91,19 +88,16 @@ class ::Moderator
         if response.status == 201 or response.status == 200
             if SiteSetting.sensitive_auth_token_loc == "headers"
                 result = response.headers
-                @@token = result['x-subject-token']
-                @@token_expire_time = Time.new + SiteSetting.sensitive_expire_time.to_i * 60 * 60
+                Discourse.redis.setex(cache_key, 24.hours.to_i, result['x-subject-token'])            
                 true
             elsif SiteSetting.sensitive_auth_token_loc == "body"
                 auth_json = JSON.parse(response.body)
                 log("sensitive_token_json: #{auth_json}")
-
                 result = {}
                 if auth_json.present?
                     json_walk(result, auth_json, :token)
                 end
-                @@token = result[:token]
-                @@token_expire_time = Time.new + SiteSetting.sensitive_expire_time.to_i * 60 * 60
+                Discourse.redis.setex(cache_key, 24.hours.to_i, result[:token]) 
                 true
             end
         else
@@ -118,6 +112,7 @@ class ::Moderator
     def self.text_request_body(text, event_type)
         body = {}
         body[:items] = [{text: text}.stringify_keys]
+        body[:categories] = ["porn", "abuse", "contraband", "flood", "politics"]
         json_body = JSON.parse body.to_json
         json_body.to_s.gsub('=>', ':')
     end
@@ -246,7 +241,7 @@ Output:
         text_moderation_method = SiteSetting.sensitive_text_check_method.downcase.to_sym
         text_moderation_url = SiteSetting.sensitive_text_check_url.sub(':project_id', SiteSetting.sensitive_project_id).sub(':project_name', SiteSetting.sensitive_project_name)
         body = text_request_body(text, event)
-        bearer_token = "#{@@token}"
+        bearer_token = "#{Discourse.redis.get(cache_key)}"
         headers = { 'X-Auth-Token' => bearer_token, 'Content-Type' => 'application/json;charset=utf8' }
         log("request body: #{body}")
 
@@ -292,7 +287,7 @@ Output:
         image_moderation_method = SiteSetting.sensitive_image_check_method.downcase.to_sym
         image_moderation_url = SiteSetting.sensitive_image_check_url.sub(':project_id', SiteSetting.sensitive_project_id).sub(':project_name', SiteSetting.sensitive_project_name)
         body = image_request_body(img, event, categories)
-        bearer_token = "#{@@token}"
+        bearer_token = "#{Discourse.redis.get(cache_key)}"
         headers = { 'X-Auth-Token' => bearer_token, 'Content-Type' => 'application/json' }
         log("request body: #{body}")
 
@@ -431,6 +426,10 @@ end
 
 
 NewPostManager.add_handler priority=9 do |manager|
+    if manager.user.staff?
+        nil
+        next
+    end
     validator = ModeratorValidator.new(attributes: [:raw])
     post = Post.new(raw: "#{manager.args[:title]} #{manager.args[:raw]}")
     post.user = manager.user
