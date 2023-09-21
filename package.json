@@ -1,7 +1,7 @@
 {
-  "name": "discourse-sensitive_easecheck",
-  "version": "0.1",
-  "repository": "https://gitee.com/opensourceway/EaseCheck.git",
+  "name": "discourse-easecheck",
+  "version": "0.2",
+  "repository": "https://gitee.com/opensourceway/discourse-easecheck.git",
   "author": "WANG WEI FENG",
   "license": "MuLanPSL-2.0",
   "devDependencies": {
