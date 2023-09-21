@@ -1,10 +1,10 @@
-### discourse-sensitive-easecheck
+### discourse-easecheck
 
-This plugin allows to perform texts or images sensitive check when users create posts 
+This plugin allows to perform texts or images content check when users create posts 
 or update them.
 
-This is mainly based on the service of Huawei Cloud Moderation. If you want to use other 
-provider's sensitive check services, you'd better edit the request format in plugin.rb.
+This is mainly based on the service of HuaweiCloud Moderation service. If you want to use other 
+provider's content check services, you need add service implements.
 
 ## Usage 
 
@@ -12,7 +12,7 @@ provider's sensitive check services, you'd better edit the request format in plu
 
 First, clone this repository to 'plugins' directory:
 
-'git clone https://gitee.com/opensourceway/EaseCheck.git'
+'git clone https://gitee.com/opensourceway/discourse-easecheck.git'
 
 or add above command to 'web_only.yml' if using discourse docker.
 
@@ -20,48 +20,27 @@ or add above command to 'web_only.yml' if using discourse docker.
 
 Second, configure service parameters:
 
-'sensitive_enabled' - enable plugin
+'easecheck_enabled' - enable plugin
 
-'sensitive_text_check_url' - your provider's text check url
+'easecheck_huaweicloud_text_check_endpoint' - huaweicloud's text check url
 
-'sensitive_image_check_url' - your provider's image check url
+'easecheck_huaweicloud_image_check_endpoint' - huaweicloud's image check url
 
-'sensitive_project_id' - the project id from your provider 
+'easecheck_huaweicloud_project_id' - the project id of huaweicloud 
 
-'sensitive_project_name' - the project name from your provider
+'easecheck_huaweicloud_project_name' - the project name of huaweicloud
 
-'sensitive_json_suggestion_path' - suggestion path in response, i.e. result.suggestion
+'easecheck_huaweicloud_auth_token_endpoint' - huaweicloud's authorization url to get token
 
-'sensitive_json_hits_path' - hit words path in text check response, i.e. result.segments
+'easecheck_huaweicloud_token_validity_period' - how long token is valid/ hour, i.e. 23
 
-'sensitive_auth_url' - your provider's authorization url to get token
+'easecheck_huaweicloud_text_check_categories' - huaweicloud's categories included in text check request
 
-'sensitive_json_token_path' - the token path in auth response
+'easecheck_huaweicloud_image_check_categories' - huaweicloud's categories included in image check request
 
-'sensitive_expire_time' - how long token is valid/ hour, i.e. 23
+'easecheck_provider' - your content check cloud service provider
 
-'sensitive_debug_info' - if log debug info about sensitive easecheck, logs can be viewed at admins/log
-
-# Part3: Access validator
-
-The original forum only opens the processing interface for creating new posts. So, in order to validate 
-the plugin, you need to add validator to topic/post's model for text check and upload controlller for 
-image check.
-
-In models/topic.rb, add topic validator:
-
-'validates :title, title_moderator: {unless: Proc.new { |v| v.new_record? }}'
-
-In models/post.rb, add post validator:
-
-'validates :raw, post_moderator: true, unless: Proc.new { |v| v.new_record? }'
-
-In controllers/upload_controller.rb, add in line 266:
-'image_base64 = Base64.encode64(File.read(tempfile))'
-'suggestion = ::Moderator.should_block_image? image_base64, 'article', ['all']'
-'if suggestion == 'block''
-'    return { errors: [I18n.t("contains_sensitive_image")] }'
-'end'
+'easecheck_debug_info' - if log debug info about easecheck easecheck, logs can be viewed at admins/log
 
 
-For more information, please see: **https://www.huaweicloud.com/product/moderation.html**
+For more information about HuaweiCloud Moderation service, please see: **https://www.huaweicloud.com/product/moderation.html**
