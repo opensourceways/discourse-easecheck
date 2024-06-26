@@ -41,6 +41,9 @@ after_initialize do
         translation_args = { detail: detail }
         err = I18n.t("easecheck_contains_unallowed_text", translation_args)
         record.errors.add(:base, err)
+      elsif suggestion == "fail"
+        err = I18n.t("text content is too long")
+        record.errors.add(:base, err)
       end
     end
   end
