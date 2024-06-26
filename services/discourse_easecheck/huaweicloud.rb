@@ -210,11 +210,21 @@ module DiscourseEaseCheck
     end
 
     def self.run_text_check(text)
-        text.scan(/.{1,5000}/).each do |subText|
-            suggestion, detail = process_text_response(request_for_text_check(subText))
-            if suggestion.nil? || suggestion == "block" || suggestion == "review"
-                return suggestion, detail
+        unless SiteSetting.easecheck_enabled
+            return ["pass", ""]
+        end
+        begin
+            Timeout.timeout(55) do
+                (0..text.size).step(5000) do |start_index|
+                    subText = text[start_index, 5000]
+                    suggestion, detail = process_text_response(request_for_text_check(subText))
+                    if suggestion.nil? || suggestion == "block" || suggestion == "review"
+                        return suggestion, detail
+                    end
+                end
             end
+        rescue Timeout::Error
+            return ["fail", ""]
         end
         ["pass", ""]
     end
