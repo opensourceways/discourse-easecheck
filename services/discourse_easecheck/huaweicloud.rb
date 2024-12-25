@@ -38,11 +38,12 @@ module DiscourseEaseCheck
     end
 
     def self.get_token?
+        debug_log("get token start...")
         connection = Faraday.new do |f|
-            f.adapter FinalDestination::FaradayAdapter
+            f.adapter Faraday.default_adapter
         end
         auth_url = SiteSetting.easecheck_huaweicloud_auth_token_endpoint
-                   .sub(':project_name', SiteSetting.easecheck_huaweicloud_project_name)
+                   .sub(':project_name', SiteSetting.easecheck_huaweicloud_project_name)    
         auth_method = "POST".downcase.to_sym
         auth_body = {
             auth: {
@@ -68,18 +69,29 @@ module DiscourseEaseCheck
         }.to_json
         auth_body = JSON.parse(auth_body).to_s.gsub('=>', ':')
         auth_headers = { 'Content-Type' => 'application/json;charset=utf8' }
-        response = connection.run_request(auth_method, auth_url, auth_body, auth_headers)
-        debug_log("token response: #{response.inspect}")
-
-        if response.status == 200 || response.status == 201
-            result = response.headers
-            Discourse.redis.setex(cache_key,
-                                  SiteSetting.easecheck_huaweicloud_token_validity_period.hours.to_i,
-                                  result['x-subject-token'])
-            true
-        else
-            false
-        end
+        
+        begin
+            response = connection.run_request(auth_method, auth_url, auth_body, auth_headers)
+     
+            if response.status == 200 || response.status == 201
+                result = response.headers
+                Discourse.redis.setex(cache_key,
+                                      SiteSetting.easecheck_huaweicloud_token_validity_period.hours.to_i,
+                                      result['x-subject-token'])
+                true
+            else
+                debug_log("token response: #{response.inspect}")
+                debug_log("token status: #{response.status}")
+                false
+            end
+        rescue => e         
+            debug_log("auth_url: #{auth_url}")
+            debug_log("auth_body: #{auth_body}")
+            debug_log("request faild: #{e.message}")
+            debug_log("Backtrace: #{e.backtrace.join("\n")}") # 输出栈跟踪信息
+            raise RuntimeError.new("get token failed: #{e.message}\n#{e.backtrace.join("\n")}")
+        end        
+        
     end
 
     def self.text_request_body(text)
@@ -99,6 +111,7 @@ module DiscourseEaseCheck
     end
 
     def self.request_for_text_check(text)
+        debug_log("text check start...")
         if is_token_expired?
             if !refresh_token?
                 return nil
@@ -106,7 +119,7 @@ module DiscourseEaseCheck
         end
 
         connection = Faraday.new do |f|
-            f.adapter FinalDestination::FaradayAdapter
+            f.adapter Faraday.default_adapter
         end
         text_check_method = "POST".downcase.to_sym
         text_check_url = SiteSetting.easecheck_huaweicloud_text_check_endpoint
@@ -115,28 +128,38 @@ module DiscourseEaseCheck
         body = text_request_body(text)
         bearer_token = "#{Discourse.redis.get(cache_key)}"
         headers = { 'X-Auth-Token' => bearer_token, 'Content-Type' => 'application/json;charset=utf8' }
-        debug_log("text check body: #{body}")
+        
+        begin
+            response = connection.run_request(text_check_method, text_check_url, body, headers)
 
-        response = connection.run_request(text_check_method, text_check_url, body, headers)
-
-        if response.status == 200
-            text_check_json = JSON.parse(response.body)
-
-            debug_log("text check response: #{text_check_json}")
-
-            result = {}
-            if text_check_json.present?
-                json_walk(result, text_check_json, :suggestion, "result.suggestion")
-                json_walk(result, text_check_json, :detail, "result.detail")
+            if response.status == 200
+                text_check_json = JSON.parse(response.body)
+    
+                debug_log("text check response: #{text_check_json}")
+    
+                result = {}
+                if text_check_json.present?
+                    json_walk(result, text_check_json, :suggestion, "result.suggestion")
+                    json_walk(result, text_check_json, :detail, "result.detail")
+                end
+                result
+            else
+                debug_log("text check body: #{body}")
+                debug_log("text_check_url: #{text_check_url}")
+                debug_log("headers: #{headers}")
+                refresh_token?
+                nil
             end
-            result
-        else
-            refresh_token?
-            nil
+        rescue => e      
+            debug_log("request faild: #{e.message}")
+            debug_log("Backtrace: #{e.backtrace.join("\n")}") # 输出栈跟踪信息
+            raise RuntimeError.new("text check failed: #{e.message}\n#{e.backtrace.join("\n")}")
         end
+        
     end
 
     def self.request_for_image_check(img)
+        debug_log("image check start...")
         if is_token_expired?
             if !refresh_token?
                 return nil
@@ -144,7 +167,7 @@ module DiscourseEaseCheck
         end
 
         connection = Faraday.new do |f|
-            f.adapter FinalDestination::FaradayAdapter
+            f.adapter Faraday.default_adapter
         end
         image_check_method = "POST".downcase.to_sym
         image_check_url = SiteSetting.easecheck_huaweicloud_image_check_endpoint
@@ -153,24 +176,33 @@ module DiscourseEaseCheck
         body = image_request_body(img)
         bearer_token = "#{Discourse.redis.get(cache_key)}"
         headers = { 'X-Auth-Token' => bearer_token, 'Content-Type' => 'application/json' }
-
-        response = connection.run_request(image_check_method, image_check_url, body, headers)
-
-        if response.status == 200
-            image_check_json = JSON.parse(response.body)
-
-            debug_log("image check response: #{image_check_json}")
-
-            result = {}
-            if image_check_json.present?
-                json_walk(result, image_check_json, :suggestion, "result.suggestion")
-                json_walk(result, image_check_json, :category_suggestions, "result.category_suggestions")
+        
+        begin
+            response = connection.run_request(image_check_method, image_check_url, body, headers)
+            if response.status == 200
+                image_check_json = JSON.parse(response.body)
+    
+                debug_log("image check response: #{image_check_json}")
+    
+                result = {}
+                if image_check_json.present?
+                    json_walk(result, image_check_json, :suggestion, "result.suggestion")
+                    json_walk(result, image_check_json, :category_suggestions, "result.category_suggestions")
+                end
+                result
+            else
+                debug_log("image_body: #{body}")
+                debug_log("image_check_url: #{image_check_url}")
+                debug_log("headers: #{headers}")
+                refresh_token?
+                nil
             end
-            result
-        else
-            refresh_token?
-            nil
+        rescue => e
+            debug_log("request faild: #{e.message}")
+            debug_log("Backtrace: #{e.backtrace.join("\n")}") # 输出栈跟踪信息
+            raise RuntimeError.new("image check failed: #{e.message}\n#{e.backtrace.join("\n")}")
         end
+        
     end
 
     def self.process_text_response(result)
